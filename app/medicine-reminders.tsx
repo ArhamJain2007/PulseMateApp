@@ -63,18 +63,7 @@ export default function MedicineRemindersScreen() {
                 onPress={() =>
                   Alert.alert("Delete Reminder", "Remove this reminder?", [
                     { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Delete",
-                      style: "destructive",
-                      onPress: async () => {
-                        try {
-                          await deleteReminder(r.id);
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                        } catch {
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                        }
-                      },
-                    },
+                    { text: "Delete", style: "destructive", onPress: () => deleteReminder(r.id) },
                   ])
                 }
               >
