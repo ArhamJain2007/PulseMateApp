@@ -1,11 +1,26 @@
 import createContextHook from "@nkzw/create-context-hook";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 import { useEffect, useState } from "react";
 
-import { Platform } from "react-native";
-const isNative = Platform.OS !== "web";
+// 🔥 IMPORTANT: load notifications ONLY on native
+let Notifications: typeof import("expo-notifications") | null = null;
 
+if (Platform.OS !== "web") {
+  Notifications = require("expo-notifications");
+}
+
+// 🔥 Safe handler (runs only on native)
+if (Platform.OS !== "web" && Notifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () =>
+      ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      } as any),
+  });
+}
 
 export interface Reminder {
   id: string;
@@ -16,20 +31,9 @@ export interface Reminder {
 }
 
 const REMINDERS_STORAGE_KEY = "@health_app_reminders";
+const isNative = Platform.OS !== "web";
 
 export const [RemindersContext, useReminders] = createContextHook(() => {
-  if (isNative && Notifications) {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldSetBadge: false,
-      }),
-    });
-  }
-
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -44,6 +48,7 @@ export const [RemindersContext, useReminders] = createContextHook(() => {
         setReminders(JSON.parse(stored));
       }
     } catch (e) {
+      console.warn("Failed to load reminders", e);
     } finally {
       setIsLoading(false);
     }
@@ -51,16 +56,17 @@ export const [RemindersContext, useReminders] = createContextHook(() => {
 
   const ensurePermissions = async () => {
     if (!isNative || !Notifications) return;
+
     const settings = await Notifications.getPermissionsAsync();
     if (!settings.granted) {
       await Notifications.requestPermissionsAsync();
     }
   };
 
-
   const scheduleReminder = async (medicine: string, time: string) => {
     const now = new Date();
     const [hh, mm] = time.split(":").map((v) => parseInt(v, 10));
+
     const scheduled = new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -70,13 +76,17 @@ export const [RemindersContext, useReminders] = createContextHook(() => {
       0,
       0,
     );
+
     if (scheduled.getTime() <= now.getTime()) {
       scheduled.setDate(scheduled.getDate() + 1);
     }
+
     let nid: string | undefined = undefined;
 
+    // 🔥 schedule only on native
     if (isNative && Notifications) {
       await ensurePermissions();
+
       nid = await Notifications.scheduleNotificationAsync({
         content: {
           title: "Medicine Reminder",
@@ -95,6 +105,7 @@ export const [RemindersContext, useReminders] = createContextHook(() => {
 
   const addReminder = async (medicine: string, time: string) => {
     const { scheduled, nid } = await scheduleReminder(medicine, time);
+
     const reminder: Reminder = {
       id: Math.random().toString(36).substring(7),
       medicine,
@@ -102,21 +113,35 @@ export const [RemindersContext, useReminders] = createContextHook(() => {
       datetimeISO: scheduled.toISOString(),
       notificationId: nid,
     };
+
     const updated = [...reminders, reminder];
     setReminders(updated);
-    await AsyncStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(updated));
+
+    await AsyncStorage.setItem(
+      REMINDERS_STORAGE_KEY,
+      JSON.stringify(updated),
+    );
   };
 
   const deleteReminder = async (id: string) => {
     const target = reminders.find((r) => r.id === id);
+
+    // 🔥 cancel only on native
     if (isNative && Notifications && target?.notificationId) {
       try {
-        await Notifications.cancelScheduledNotificationAsync(target.notificationId);
+        await Notifications.cancelScheduledNotificationAsync(
+          target.notificationId,
+        );
       } catch {}
     }
+
     const updated = reminders.filter((r) => r.id !== id);
     setReminders(updated);
-    await AsyncStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(updated));
+
+    await AsyncStorage.setItem(
+      REMINDERS_STORAGE_KEY,
+      JSON.stringify(updated),
+    );
   };
 
   return {

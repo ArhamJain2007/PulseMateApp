@@ -21,6 +21,7 @@ export default function PrescriptionsScreen() {
   const [showTitleModal, setShowTitleModal] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>("");
   const [pendingImageUri, setPendingImageUri] = useState<string>("");
+  const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<Prescription | null>(null);
 
   const pickImage = async () => {
@@ -35,16 +36,16 @@ export default function PrescriptionsScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "images" as const,
-      allowsEditing: true,
-      quality: 0.8,
-    });
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      base64: true, // ⭐ IMPORTANT
+})
 
-    if (!result.canceled && result.assets[0]) {
+   if (!result.canceled && result.assets?.[0]) {
       setPendingImageUri(result.assets[0].uri);
+      setPendingImageBase64(result.assets[0].base64 ?? null); // ⭐ IMPORTANT
       setShowTitleModal(true);
-    }
-  };
+}
 
   const handleSaveTitle = () => {
     if (!newTitle.trim()) {
@@ -340,3 +341,4 @@ const styles = StyleSheet.create({
     height: "80%",
   },
 });
+}

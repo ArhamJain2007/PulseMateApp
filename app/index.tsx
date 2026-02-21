@@ -1,178 +1,136 @@
-import { router } from "expo-router";
-import { Activity, Clock, FileText, LogOut } from "lucide-react-native";
-import React, { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React from "react";
+import {
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { useAuth } from "@/contexts/AuthContext";
+type Feature = {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  route: string;
+};
 
+const features: Feature[] = [
+  {
+    id: "1",
+    title: "AI Health Assistant",
+    subtitle: "Medicine info & symptom analysis",
+    icon: "pulse",
+    color: "#4F46E5",
+    route: "/ai-assistant",
+  },
+  {
+    id: "2",
+    title: "Prescriptions",
+    subtitle: "Upload & manage prescriptions",
+    icon: "document-text",
+    color: "#10B981",
+    route: "/prescriptions",
+  },
+  {
+    id: "3",
+    title: "Medicine Reminders",
+    subtitle: "Set alarms for medicines",
+    icon: "alarm",
+    color: "#F59E0B",
+    route: "/medicine-reminders",
+  },
+];
 
-export default function HomeScreen() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+export default function Dashboard() {
+  const router = useRouter();
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace("/login");
-    }
-  }, [isAuthenticated, isLoading]);
+  const renderItem = ({ item }: { item: Feature }) => (
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.85}
+      onPress={() => router.push(item.route as any)}
+    >
+      <View
+        style={[
+          styles.iconContainer,
+          { backgroundColor: item.color + "15" },
+        ]}
+      >
+        <Ionicons name={item.icon} size={28} color={item.color} />
+      </View>
 
-  const handleLogout = () => {
-    logout();
-    router.replace("/login");
-  };
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
+      <Text style={styles.cardTitle}>{item.title}</Text>
+      <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.username}>{user?.username}</Text>
-          </View>
-          <Pressable style={styles.logoutButton} onPress={handleLogout}>
-            <LogOut size={20} color="#ef4444" />
-          </Pressable>
-        </View>
+      <Text style={styles.greeting}>Welcome back,</Text>
+      <Text style={styles.username}>Arham 👋</Text>
 
-        <View style={styles.cardsContainer}>
-          <Pressable
-            style={styles.card}
-            onPress={() => router.push("/ai-assistant")}
-          >
-            <View style={styles.cardIcon}>
-              <Activity size={28} color="#3b82f6" />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>AI Health Assistant</Text>
-              <Text style={styles.cardDescription}>
-                Get medicine info and symptom analysis
-              </Text>
-            </View>
-          </Pressable>
-
-          <Pressable
-            style={styles.card}
-            onPress={() => router.push("/prescriptions")}
-          >
-            <View style={styles.cardIcon}>
-              <FileText size={28} color="#10b981" />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Prescriptions</Text>
-              <Text style={styles.cardDescription}>
-                Upload and manage your prescriptions
-              </Text>
-            </View>
-          </Pressable>
-
-          <Pressable
-            style={styles.card}
-            onPress={() => router.push("/medicine-reminders")}
-          >
-            <View style={styles.cardIcon}>
-              <Clock size={28} color="#f59e0b" />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Medicine Reminders</Text>
-              <Text style={styles.cardDescription}>
-                Set alarms for your medicines
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-      </View>
+      <FlatList
+        data={features}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={{ justifyContent: "space-between" }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      />
     </SafeAreaView>
   );
 }
-
+<text>New UI</text>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  content: {
-    flex: 1,
+    backgroundColor: "#F5F7FB",
     paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 32,
+    paddingTop: 10,
   },
   greeting: {
     fontSize: 16,
-    color: "#64748b",
-    marginBottom: 4,
+    color: "#6B7280",
   },
   username: {
     fontSize: 28,
-    fontWeight: "700" as const,
-    color: "#0f172a",
-  },
-  logoutButton: {
-    padding: 8,
-    backgroundColor: "#fee2e2",
-    borderRadius: 8,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: "#64748b",
-    textAlign: "center",
-  },
-  cardsContainer: {
-    gap: 16,
+    fontWeight: "700",
+    marginBottom: 20,
+    color: "#111827",
   },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 18,
+    width: "48%",
+    marginBottom: 16,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  cardIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: "#f1f5f9",
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-  },
-  cardContent: {
-    flex: 1,
+    marginBottom: 12,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: "600" as const,
-    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
     marginBottom: 4,
   },
-  cardDescription: {
-    fontSize: 14,
-    color: "#64748b",
+  cardSubtitle: {
+    fontSize: 12,
+    color: "#6B7280",
   },
 });

@@ -9,7 +9,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 //import { trpc, trpcClient } from "@/lib/trpc";
-
+<Stack.Screen name="qr-scanner" options={{ title: "Scan QR" }} />
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 

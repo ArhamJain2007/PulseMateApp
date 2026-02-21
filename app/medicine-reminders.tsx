@@ -2,14 +2,14 @@ import * as Haptics from "expo-haptics";
 import { Plus, Trash2 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-    Alert,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -63,7 +63,18 @@ export default function MedicineRemindersScreen() {
                 onPress={() =>
                   Alert.alert("Delete Reminder", "Remove this reminder?", [
                     { text: "Cancel", style: "cancel" },
-                    { text: "Delete", style: "destructive", onPress: () => deleteReminder(r.id) },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: async () => {
+                        try {
+                          await deleteReminder(r.id);
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        } catch {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                        }
+                      },
+                    },
                   ])
                 }
               >
