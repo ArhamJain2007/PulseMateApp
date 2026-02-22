@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@googlemaps/js-api-loader": "^2.0.2",
     "@nkzw/create-context-hook": "^1.1.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-navigation/bottom-tabs": "^7.4.0",
@@ -29,6 +30,7 @@
     "expo-image-picker": "^17.0.10",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
+    "expo-location": "~18.0.10",
     "expo-notifications": "~0.32.16",
     "expo-router": "~6.0.23",
     "expo-splash-screen": "~31.0.13",

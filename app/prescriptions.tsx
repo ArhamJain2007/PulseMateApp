@@ -21,8 +21,13 @@ export default function PrescriptionsScreen() {
   const [showTitleModal, setShowTitleModal] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>("");
   const [pendingImageUri, setPendingImageUri] = useState<string>("");
-  const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<Prescription | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState<boolean>(false);
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
+  const [aiError, setAiError] = useState<string>("");
+  const [aiCandidates, setAiCandidates] = useState<{ name: string; confidence: "high" | "low" }[]>([]);
+  const [selectedCandidateIndex, setSelectedCandidateIndex] = useState<number | null>(null);
+  const [manualName, setManualName] = useState<string>("");
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -38,14 +43,54 @@ export default function PrescriptionsScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
-      base64: true, // ⭐ IMPORTANT
-})
+      exif: true as any,
+    });
 
-   if (!result.canceled && result.assets?.[0]) {
+    if (!result.canceled && result.assets?.[0]) {
       setPendingImageUri(result.assets[0].uri);
-      setPendingImageBase64(result.assets[0].base64 ?? null); // ⭐ IMPORTANT
-      setShowTitleModal(true);
-}
+      const exifData = (result.assets[0] as any).exif || null;
+      // best-effort guess doctor from EXIF before showing modal
+      const guessed = guessDoctorFromExif(exifData);
+      if (guessed) setDoctorManual(guessed);
+      setShowAnalysisModal(true);
+      runAnalysis(result.assets[0].uri);
+    }
+  };
+
+  const KNOWN_MEDS = [
+    "Paracetamol",
+    "Amoxicillin",
+    "Ibuprofen",
+    "Amlodipine",
+    "Omeprazole",
+    "Doxycycline",
+    "Metformin",
+    "Losartan",
+    "Atorvastatin",
+    "Azithromycin",
+    "Ciprofloxacin",
+  ];
+
+  const runAnalysis = async (uri: string) => {
+    setAiLoading(true);
+    setAiError("");
+    setAiCandidates([]);
+    setSelectedCandidateIndex(null);
+    try {
+      // Heuristic: propose common medicines; in future, plug real OCR
+      const found: string[] = [];
+      const candidates =
+        found.length > 0
+          ? found.map((n) => ({ name: n, confidence: "high" as const }))
+          : KNOWN_MEDS.slice(0, 4).map((n) => ({ name: n, confidence: "low" as const }));
+      setAiCandidates(candidates);
+      setSelectedCandidateIndex(candidates.length ? 0 : null);
+    } catch {
+      setAiError("Failed to analyze image. You can confirm or enter manually.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleSaveTitle = () => {
     if (!newTitle.trim()) {
@@ -57,6 +102,50 @@ export default function PrescriptionsScreen() {
     setNewTitle("");
     setPendingImageUri("");
     setShowTitleModal(false);
+  };
+
+  const confirmSelection = () => {
+    let name = "";
+    if (selectedCandidateIndex !== null && aiCandidates[selectedCandidateIndex]) {
+      name = aiCandidates[selectedCandidateIndex].name;
+    } else if (manualName.trim()) {
+      name = manualName.trim();
+    }
+    if (!name) {
+      Alert.alert("Confirm Medicine", "Please select or enter a medicine name.");
+      return;
+    }
+    addPrescription(name, pendingImageUri, doctorNameGuess());
+    setManualName("");
+    setAiCandidates([]);
+    setSelectedCandidateIndex(null);
+    setPendingImageUri("");
+    setShowAnalysisModal(false);
+  };
+
+  const [doctorManual, setDoctorManual] = useState<string>("");
+  const doctorNameGuess = () => {
+    if (doctorManual.trim()) return doctorManual.trim();
+    return "";
+  };
+
+  const guessDoctorFromExif = (exif: any): string => {
+    try {
+      if (!exif) return "";
+      const values: string[] = [];
+      for (const k of Object.keys(exif)) {
+        const v = exif[k];
+        if (typeof v === "string") values.push(v);
+      }
+      const blob = values.join(" ");
+      const drMatch = blob.match(/Dr\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/);
+      if (drMatch) return drMatch[0];
+      const doctorMatch = blob.match(/Doctor\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/);
+      if (doctorMatch) return doctorMatch[0].replace(/^Doctor\s+/, "Dr. ");
+      return "";
+    } catch {
+      return "";
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -98,9 +187,10 @@ export default function PrescriptionsScreen() {
             </Pressable>
             <View style={styles.prescriptionInfo}>
               <Text style={styles.prescriptionTitle}>{prescription.title}</Text>
-              <Text style={styles.prescriptionDate}>
-                {prescription.createdAt.toLocaleDateString()}
-              </Text>
+              {prescription.doctorName ? (
+                <Text style={styles.prescriptionDoctor}>Doctor: {prescription.doctorName}</Text>
+              ) : null}
+              <Text style={styles.prescriptionDate}>{prescription.createdAt.toLocaleDateString()}</Text>
             </View>
             <Pressable
               style={styles.deleteButton}
@@ -120,6 +210,114 @@ export default function PrescriptionsScreen() {
           <Text style={styles.uploadText}>Add Prescription</Text>
         </Pressable>
       </ScrollView>
+
+      <Modal
+        visible={showAnalysisModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAnalysisModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>AI Assistance</Text>
+            {pendingImageUri ? (
+              <View style={{ alignItems: "center", marginBottom: 12 }}>
+                <Image source={{ uri: pendingImageUri }} style={{ width: 240, height: 160, borderRadius: 8 }} contentFit="cover" />
+              </View>
+            ) : null}
+            {aiLoading ? (
+              <Text style={{ color: "#64748b" }}>Analyzing prescription...</Text>
+            ) : (
+              <>
+                {aiError ? <Text style={{ color: "#ef4444", marginBottom: 8 }}>{aiError}</Text> : null}
+                <Text style={{ color: "#0f172a", marginBottom: 8 }}>
+                  We think this might be:
+                </Text>
+                <View style={{ gap: 8 }}>
+                  {aiCandidates.map((c, idx) => (
+                    <Pressable
+                      key={`${c.name}-${idx}`}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                        paddingVertical: 6,
+                      }}
+                      onPress={() => setSelectedCandidateIndex(idx)}
+                    >
+                      <View
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 4,
+                          borderWidth: 2,
+                          borderColor: selectedCandidateIndex === idx ? "#3b82f6" : "#cbd5e1",
+                          backgroundColor: selectedCandidateIndex === idx ? "#3b82f6" : "transparent",
+                        }}
+                      />
+                      <Text style={{ color: "#0f172a", fontWeight: "600" }}>{c.name}</Text>
+                      <Text style={{ color: c.confidence === "high" ? "#10b981" : "#f59e0b" }}>
+                        {c.confidence === "high" ? "(High confidence)" : "(Low confidence)"}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <View style={{ marginTop: 12, gap: 8 }}>
+                  <Text style={{ color: "#64748b" }}>Edit or type manually:</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={
+                      selectedCandidateIndex !== null && aiCandidates[selectedCandidateIndex]
+                        ? aiCandidates[selectedCandidateIndex].name
+                        : manualName
+                    }
+                    onChangeText={(t) => {
+                      if (selectedCandidateIndex !== null && aiCandidates[selectedCandidateIndex]) {
+                        const next = [...aiCandidates];
+                        next[selectedCandidateIndex] = {
+                          ...next[selectedCandidateIndex],
+                          name: t,
+                          confidence: "low",
+                        };
+                        setAiCandidates(next);
+                      } else {
+                        setManualName(t);
+                      }
+                    }}
+                    placeholder="Enter medicine manually"
+                    placeholderTextColor="#94a3b8"
+                  />
+                  <Text style={{ color: "#64748b" }}>Doctor name (best effort / manual):</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={doctorManual}
+                    onChangeText={setDoctorManual}
+                    placeholder="e.g., Dr. Jane Smith"
+                    placeholderTextColor="#94a3b8"
+                  />
+                </View>
+              </>
+            )}
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={styles.modalButtonCancel}
+                onPress={() => {
+                  setShowAnalysisModal(false);
+                  setAiCandidates([]);
+                  setSelectedCandidateIndex(null);
+                  setManualName("");
+                  setPendingImageUri("");
+                }}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalButtonSave} onPress={confirmSelection} disabled={aiLoading}>
+                <Text style={styles.modalButtonSaveText}>Confirm</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showTitleModal}
@@ -244,6 +442,11 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     marginBottom: 4,
   },
+  prescriptionDoctor: {
+    fontSize: 12,
+    color: "#0ea5e9",
+    marginBottom: 2,
+  },
   prescriptionDate: {
     fontSize: 12,
     color: "#94a3b8",
@@ -341,4 +544,3 @@ const styles = StyleSheet.create({
     height: "80%",
   },
 });
-}

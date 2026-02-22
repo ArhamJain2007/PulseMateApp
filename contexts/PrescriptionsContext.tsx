@@ -7,6 +7,7 @@ export interface Prescription {
   title: string;
   uri: string;
   createdAt: Date;
+  doctorName?: string;
 }
 
 const PRESCRIPTIONS_STORAGE_KEY = "@health_app_prescriptions";
@@ -38,13 +39,14 @@ export const [PrescriptionsContext, usePrescriptions] = createContextHook(() => 
     }
   };
 
-  const addPrescription = async (title: string, uri: string) => {
+  const addPrescription = async (title: string, uri: string, doctorName?: string) => {
     try {
       const newPrescription: Prescription = {
         id: Math.random().toString(36).substring(7),
         title,
         uri,
         createdAt: new Date(),
+        doctorName,
       };
       const updated = [...prescriptions, newPrescription];
       setPrescriptions(updated);

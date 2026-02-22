@@ -44,6 +44,22 @@ const features: Feature[] = [
     color: "#F59E0B",
     route: "/medicine-reminders",
   },
+  {
+    id: "4",
+    title: "Nearby Medical Facilities",
+    subtitle: "Find hospitals near you",
+    icon: "medkit",
+    color: "#2563EB",
+    route: "/nearby-medical-facilities",
+  },
+  {
+    id: "5",
+    title: "Health News",
+    subtitle: "Latest articles from WHO",
+    icon: "newspaper",
+    color: "#0EA5E9",
+    route: "/health-news",
+  },
 ];
 
 export default function Dashboard() {

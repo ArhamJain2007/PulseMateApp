@@ -1,4 +1,5 @@
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import { Plus, Trash2 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -17,12 +18,30 @@ import type { Reminder } from "@/contexts/RemindersContext";
 import { useReminders } from "@/contexts/RemindersContext";
 
 export default function MedicineRemindersScreen() {
-  const { reminders, addReminder, deleteReminder } = useReminders();
+  const { reminders, addReminder, deleteReminder, markTaken } = useReminders();
+  const router = useRouter();
   const [showModal, setShowModal] = useState<boolean>(false);
   const [medicine, setMedicine] = useState<string>("");
   const [time, setTime] = useState<string>("");
 
   const validateTime = (t: string) => /^\d{1,2}:\d{2}$/.test(t);
+
+  const IconHover = ({
+    children,
+    onPress,
+  }: {
+    children: React.ReactNode;
+    onPress?: () => void;
+  }) => (
+    <Pressable
+      onPress={onPress}
+      style={({ hovered, pressed }) => ({
+        transform: [{ scale: pressed ? 0.95 : hovered ? 1.08 : 1 }],
+      })}
+    >
+      {children}
+    </Pressable>
+  );
 
   const handleSave = async () => {
     if (!medicine.trim()) {
@@ -52,29 +71,51 @@ export default function MedicineRemindersScreen() {
           const date = new Date(r.datetimeISO);
           return (
             <View key={r.id} style={styles.reminderCard}>
-              <View style={styles.reminderInfo}>
-                <Text style={styles.reminderMedicine}>{r.medicine}</Text>
-                <Text style={styles.reminderTime}>
-                  {r.time} • {date.toLocaleDateString()}
-                </Text>
-              </View>
               <Pressable
-                style={styles.deleteButton}
-                onPress={() =>
-                  Alert.alert("Delete Reminder", "Remove this reminder?", [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Delete", style: "destructive", onPress: () => deleteReminder(r.id) },
-                  ])
-                }
+                style={styles.reminderInfo}
+                onPress={() => router.push({ pathname: "/medicine-details", params: { id: r.id } })}
               >
-                <Trash2 size={20} color="#ef4444" />
+                <Text style={styles.reminderMedicine}>{r.medicine}</Text>
+                <Text style={styles.reminderTime}>{r.time} • {date.toLocaleDateString()}</Text>
               </Pressable>
+              <View style={styles.reminderActions}>
+                <Pressable
+                  style={styles.takenButton}
+                  onPress={async () => {
+                    try {
+                      const ok = await markTaken(r.id, r.datetimeISO);
+                      if (ok) {
+                        Alert.alert("Good job", "Dose recorded successfully.");
+                      } else {
+                        Alert.alert("Already recorded", "You've already marked this dose today.");
+                      }
+                    } catch {}
+                    try {
+                      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    } catch {}
+                  }}
+                >
+                  <Text style={styles.takenButtonText}>Mark as Taken</Text>
+                </Pressable>
+                <IconHover
+                  onPress={() =>
+                    Alert.alert("Delete Reminder", "Remove this reminder?", [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Delete", style: "destructive", onPress: () => deleteReminder(r.id) },
+                    ])
+                  }
+                >
+                  <Trash2 size={20} color="#ef4444" />
+                </IconHover>
+              </View>
             </View>
           );
         })}
 
         <Pressable style={styles.addButton} onPress={() => setShowModal(true)}>
-          <Plus size={24} color="#3b82f6" />
+          <IconHover>
+            <Plus size={24} color="#3b82f6" />
+          </IconHover>
           <Text style={styles.addText}>Add Reminder</Text>
         </Pressable>
       </ScrollView>
@@ -157,6 +198,7 @@ const styles = StyleSheet.create({
     padding: 12,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -176,6 +218,22 @@ const styles = StyleSheet.create({
   reminderTime: {
     fontSize: 12,
     color: "#94a3b8",
+  },
+  reminderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  takenButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "#10b981",
+  },
+  takenButtonText: {
+    color: "#fff",
+    fontWeight: "700" as const,
+    fontSize: 12,
   },
   deleteButton: {
     padding: 8,
